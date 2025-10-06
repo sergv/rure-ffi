@@ -19,7 +19,7 @@ module Data.Regex.Rure.FFI
   , flagDefault
 
   , rureCompile
-  , rureFree
+  , ptrRureFree
 
   , rureErrorNew
   , rureErrorFree
@@ -38,7 +38,7 @@ module Data.Regex.Rure.FFI
   , rureOptionsSetDfaSizeLimit
 
   , rureCompileSet
-  , rureSetFree
+  , ptrRureSetFree
   , rureSetIsMatch
 
   , Error
@@ -84,14 +84,13 @@ instance Monoid Flags where
 foreign import ccall unsafe "rure.h rure_compile" rureCompile
   :: Ptr CUInt8 -- pattern
   -> CSize      -- length
-  -> CUInt32    -- flags
+  -> Flags      -- flags
   -> Ptr Options
   -> Ptr Error
   -> IO (Ptr Regex)
 
-foreign import ccall unsafe "rure.h rure_free" rureFree
-  :: Ptr Regex
-  -> IO ()
+foreign import ccall unsafe "rure.h &rure_free" ptrRureFree
+  :: FunPtr (Ptr Regex -> IO ())
 
 
 foreign import ccall unsafe "rure.h rure_error_new" rureErrorNew
@@ -111,7 +110,7 @@ foreign import ccall unsafe "rure.h rure_is_match" rureIsMatch
   -> Ptr CUInt8 -- haystack
   -> CSize      -- length of haystack in bytes
   -> CSize      -- start offset
-  -> IO ()
+  -> IO CBool
 
 foreign import ccall unsafe "rure.h rure_find" rureFind
   :: Ptr Regex
@@ -135,7 +134,7 @@ foreign import ccall unsafe "rure.h rure_iter_next" rureIterNext
   -> Ptr CUInt8 -- haystack
   -> CSize      -- length of haystack in bytes
   -> Ptr Match
-  -> IO (Ptr Iter)
+  -> IO CBool
 
 
 foreign import ccall unsafe "rure.h rure_options_new" rureOptionsNew
@@ -165,16 +164,15 @@ foreign import ccall unsafe "rure.h rure_compile_set" rureCompileSet
   -> Ptr Error
   -> IO (Ptr RegexSet)
 
-foreign import ccall unsafe "rure.h rure_set_free" rureSetFree
-  :: Ptr RegexSet
-  -> IO ()
+foreign import ccall unsafe "rure.h &rure_set_free" ptrRureSetFree
+  :: FunPtr (Ptr RegexSet -> IO ())
 
 foreign import ccall unsafe "rure.h rure_set_is_match" rureSetIsMatch
   :: Ptr RegexSet
   -> Ptr CUInt8 -- haystack
   -> CSize      -- length of haystack in bytes
   -> CSize      -- start offset
-  -> IO ()
+  -> IO CBool
 
 type CUInt8  = #{type uint8_t}
 type CUInt32 = #{type uint32_t}

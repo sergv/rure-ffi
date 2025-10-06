@@ -9,7 +9,8 @@ version:
 synopsis:
   Foreign bindings to the Rust Regex library
 description:
-  TODO
+  The plan is to hase simple bindings but try not to leak resources
+  if an exception arises.
 copyright:
   (c) Sergey Vinokurov 2025
 license:
@@ -57,7 +58,6 @@ common ghc-options
   if impl(ghc >= 8.10)
     ghc-options:
       -Wno-missing-safe-haskell-mode
-      -- -Wno-prepositive-qualified-module
 
   if impl(ghc >= 9.2)
     ghc-options:
@@ -78,7 +78,6 @@ library
   build-depends:
     , base >= 4.16
     , bytestring
-    , text >= 2
   build-tool-depends:
     , hsc2hs:hsc2hs
   includes:
@@ -86,23 +85,18 @@ library
   extra-libraries:
     rure
 
--- test-suite rure-ffi-test
---   import: ghc-options
---   type:
---     exitcode-stdio-1.0
---   main-is:
---     test/TestMain.hs
---   build-depends:
---     , HUnit
---     , QuickCheck
---     , base >= 4.14
---     , optparse-applicative
---     , tasty
---     , tasty-hunit
---     , tasty-quickcheck
---     , rure-ffi
---   ghc-options:
---     -rtsopts
---     -- -threaded
---     -- "-with-rtsopts=-N -A32M"
---     -main-is TestMain
+test-suite rure-ffi-test
+  import: ghc-options
+  type:
+    exitcode-stdio-1.0
+  main-is:
+    test/TestMain.hs
+  build-depends:
+    , base >= 4.14
+    , bytestring
+    , tasty
+    , tasty-hunit
+    , rure-ffi
+  ghc-options:
+    -rtsopts
+    -main-is TestMain
