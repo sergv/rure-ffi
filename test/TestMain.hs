@@ -10,6 +10,9 @@ module TestMain (main) where
 
 import Data.ByteString.Char8 qualified as C8
 import Data.List qualified as L
+import Data.Text (Text)
+import Data.Text qualified as T
+import Data.Text.Encoding qualified as T
 import Test.Tasty
 import Test.Tasty.HUnit
 
@@ -23,8 +26,8 @@ tests = testGroup "Tests" [regexTests, regexSetTests, allMatchesTests]
 
 regexTests :: TestTree
 regexTests = testGroup "Regex"
-  [ testGroup ".*\\.c" $
-      [ mkTest $ TestInput (C8.unpack str) ".*\\.c$" str result
+  [ testGroup ".*\\.c$" $
+      [ mkTest $ TestInput (T.unpack str) ".*\\.c$" str result
       | (str, result) <-
         [ ("foo.c",   True)
         , ("foo.h",   False)
@@ -32,8 +35,8 @@ regexTests = testGroup "Regex"
         , ("foo.cc",  False)
         ]
       ]
-  , testGroup ".*\\.h" $
-      [ mkTest $ TestInput (C8.unpack str) ".*\\.h$" str result
+  , testGroup ".*\\.h$" $
+      [ mkTest $ TestInput (T.unpack str) ".*\\.h$" str result
       | (str, result) <-
         [ ("foo.c",   False)
         , ("foo.h",   True)
@@ -41,11 +44,24 @@ regexTests = testGroup "Regex"
         , ("foo.cc",  False)
         ]
       ]
+  , testGroup ".*ивет$" $
+      [ mkTest $ TestInput (T.unpack str) ".*ивет$" str result
+      | (str, result) <-
+        [ ("привет",  True)
+        , ("приветы", False)
+        ]
+      ]
+  , testGroup "〛" $
+      [ mkTest $ TestInput (T.unpack str) "〛" str result
+      | (str, result) <-
+        [ ("〚decombobulate〛", True)
+        ]
+      ]
   ]
 
 regexSetTests :: TestTree
 regexSetTests = testGroup "RegexSet"
-  [ testGroup ".*\\.c, .*\\.h" $
+  [ testGroup ".*\\.c$, .*\\.h$" $
       [ mkSetTest $ SetTestInput (C8.unpack str) [".*\\.c$", ".*\\.h$"] str result
       | (str, result) <-
         [ ("foo.c",   True)
@@ -86,21 +102,21 @@ allMatchesTests = testGroup "All matches"
 
 data TestInput = TestInput
   { tiName   :: !String
-  , tiRegexp :: !C8.ByteString
-  , tiStr    :: !C8.ByteString
+  , tiRegexp :: !Text
+  , tiStr    :: !Text
   , tiResult :: !Bool
   }
 
 mkTest :: TestInput -> TestTree
 mkTest TestInput{tiName, tiRegexp, tiStr, tiResult} =
   testCase tiName $
-    case compileRegex tiRegexp mempty Nothing of
+    case compileRegex (T.encodeUtf8 tiRegexp) mempty Nothing of
       Left err -> assertFailure $
         "Failed to compile regexp set " ++ show tiRegexp ++ ": " ++ show err
       Right r  -> assertEqual
         ("Regexp " ++ show tiRegexp ++ " should " ++ (if tiResult then "match" else "not match") ++ " input ‘" ++ show tiStr ++ "’")
         tiResult
-        (bytestringHasMatch r tiStr)
+        (bytestringHasMatch r (T.encodeUtf8 tiStr))
 
 data SetTestInput = SetTestInput
   { stiName    :: !String
@@ -134,7 +150,9 @@ mkAllMatchesTest TestAllMatchesInput{tamName, tamRegexp, tamStr, tamResult} =
       Left err -> assertFailure $
         "Failed to compile regexp set " ++ show tamRegexp ++ ": " ++ show err
       Right r  -> assertEqual
-        ("Regexp " ++ show tamRegexp ++ " should have matches " ++ show tamResult ++ " on string " ++ show tamStr)
-        tamResult
-        (L.reverse (unReversedList (bytestringAllMatches r tamStr)))
-
+        ("Regexp " ++ show tamRegexp ++ " should have matches " ++ show (map prettyMatch tamResult) ++ " on string " ++ show tamStr)
+        (map prettyMatch tamResult)
+        (map prettyMatch (L.reverse (unReversedList (bytestringAllMatches r tamStr))))
+  where
+    prettyMatch :: Match -> (Int, Int)
+    prettyMatch Match{matchStart, matchEnd} = (matchStart, matchEnd)

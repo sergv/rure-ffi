@@ -96,6 +96,7 @@ test-suite rure-ffi-test
     , bytestring
     , tasty
     , tasty-hunit
+    , text
     , rure-ffi
   ghc-options:
     -rtsopts
