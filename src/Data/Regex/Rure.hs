@@ -155,8 +155,9 @@ bytestringAllMatches (Regex re) haystack = unsafePerformIO $
                   res <- FFI.rureIterNext iterPtr (coerce haystackPtr) (fromIntegral haystackLen) matchPtr
                   if isTruthy res
                   then do
-                    FFI.Match{FFI.matchStart, FFI.matchEnd} <- peek matchPtr
-                    go (Match { matchStart = fromIntegral matchStart, matchEnd = fromIntegral matchEnd } : acc)
+                    !FFI.Match{FFI.matchStart, FFI.matchEnd} <- peek matchPtr
+                    let !m = Match { matchStart = fromIntegral matchStart, matchEnd = fromIntegral matchEnd }
+                    go (m : acc)
                   else
                     pure (ReversedList acc)
             go []
