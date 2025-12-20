@@ -6,17 +6,22 @@
 
 module Data.Regex.Rure
   ( Match(..)
+  , ReversedList(..)
+
   , Regex
   , compileRegex
   , finaliseRegex
   , bytestringHasMatch
-  , ReversedList(..)
   , bytestringAllMatches
+  , utf8PtrAllMatchesIO
+
   , RegexSet
   , compileRegexSet
   , finaliseRegexSet
   , bytestringHasSetMatch
+  , utf8PtrHasSetMatchIO
 
+  -- * Flags
   , FFI.Flags
   , FFI.flagCaseInsensitive
   , FFI.flagMultiline
@@ -31,6 +36,7 @@ import Control.Exception
 import Data.ByteString qualified as BS
 import Data.Coerce
 import Data.Foldable
+import Data.Regex.Rure.FFI (CUInt8)
 import Data.Regex.Rure.FFI qualified as FFI
 import Foreign.C.Types
 import Foreign.ForeignPtr
@@ -143,27 +149,37 @@ bytestringHasMatch (Regex re) haystack = unsafePerformIO $
 newtype ReversedList a = ReversedList { unReversedList :: [a] }
 
 bytestringAllMatches :: Regex -> BS.ByteString -> ReversedList Match
-bytestringAllMatches (Regex re) haystack = unsafePerformIO $
+bytestringAllMatches re haystack = unsafePerformIO $
   BS.useAsCStringLen haystack $ \(haystackPtr, haystackLen) ->
-    withForeignPtr re $ \rePtr ->
-      bracket
-        (FFI.rureIterNew rePtr)
-        FFI.rureIterFree
-        $ \iterPtr ->
-          alloca $ \matchPtr -> do
-            let go acc = do
-                  res <- FFI.rureIterNext iterPtr (coerce haystackPtr) (fromIntegral haystackLen) matchPtr
-                  if isTruthy res
-                  then do
-                    !FFI.Match{FFI.matchStart, FFI.matchEnd} <- peek matchPtr
-                    let !m = Match { matchStart = fromIntegral matchStart, matchEnd = fromIntegral matchEnd }
-                    go (m : acc)
-                  else
-                    pure (ReversedList acc)
-            go []
+    utf8PtrAllMatchesIO re (coerce haystackPtr) (fromIntegral haystackLen)
+
+utf8PtrAllMatchesIO :: Regex -> Ptr CUInt8 -> CSize -> IO (ReversedList Match)
+utf8PtrAllMatchesIO (Regex re) haystackPtr haystackLen =
+  withForeignPtr re $ \rePtr ->
+    bracket
+      (FFI.rureIterNew rePtr)
+      FFI.rureIterFree
+      $ \iterPtr ->
+        alloca $ \matchPtr -> do
+          let go :: [Match] -> IO (ReversedList Match)
+              go acc = do
+                res <- FFI.rureIterNext iterPtr haystackPtr haystackLen matchPtr
+                if isTruthy res
+                then do
+                  !FFI.Match{FFI.matchStart, FFI.matchEnd} <- peek matchPtr
+                  let !m = Match { matchStart = fromIntegral matchStart, matchEnd = fromIntegral matchEnd }
+                  go (m : acc)
+                else
+                  pure (ReversedList acc)
+          go []
 
 bytestringHasSetMatch :: RegexSet -> BS.ByteString -> Bool
-bytestringHasSetMatch (RegexSet reSet) haystack = unsafePerformIO $
+bytestringHasSetMatch reSet haystack = unsafePerformIO $
   BS.useAsCStringLen haystack $ \(haystackPtr, haystackLen) ->
-    withForeignPtr reSet $ \reSetPtr ->
-      isTruthy <$> FFI.rureSetIsMatch reSetPtr (coerce haystackPtr) (fromIntegral haystackLen) 0
+    utf8PtrHasSetMatchIO reSet (coerce haystackPtr) (fromIntegral haystackLen)
+
+utf8PtrHasSetMatchIO :: RegexSet -> Ptr CUInt8 -> CSize -> IO Bool
+utf8PtrHasSetMatchIO (RegexSet reSet) haystackPtr haystackLen =
+  withForeignPtr reSet $ \reSetPtr ->
+    isTruthy <$> FFI.rureSetIsMatch reSetPtr haystackPtr haystackLen 0
+
