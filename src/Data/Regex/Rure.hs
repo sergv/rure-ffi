@@ -94,7 +94,7 @@ compileRegex
   -> FFI.Flags
   -> Maybe Options
   -> Either BS.ByteString Regex
-compileRegex pattern flags opts = unsafePerformIO $
+compileRegex !pattern !flags opts = unsafePerformIO $
   BS.useAsCStringLen pattern $ \(patternPtr, patternLen) ->
     bracket
       FFI.rureErrorNew
@@ -112,7 +112,7 @@ compileRegexSet
   -> FFI.Flags
   -> Maybe Options
   -> Either BS.ByteString RegexSet
-compileRegexSet patterns flags opts = unsafePerformIO $
+compileRegexSet patterns !flags opts = unsafePerformIO $
   withMany BS.useAsCStringLen patterns $ \cstrLens -> do
     let patternPtrs = fmap fst cstrLens
         lens        = fmap snd cstrLens
@@ -141,7 +141,7 @@ isTruthy :: CBool -> Bool
 isTruthy = (/= CBool 0)
 
 bytestringHasMatch :: Regex -> BS.ByteString -> Bool
-bytestringHasMatch (Regex re) haystack = unsafePerformIO $
+bytestringHasMatch !(Regex re) !haystack = unsafePerformIO $
   BS.useAsCStringLen haystack $ \(haystackPtr, haystackLen) ->
     withForeignPtr re $ \rePtr ->
       isTruthy <$> FFI.rureIsMatch rePtr (coerce haystackPtr) (fromIntegral haystackLen) 0
@@ -154,7 +154,7 @@ bytestringAllMatches re haystack = unsafePerformIO $
     utf8PtrAllMatchesIO re (coerce haystackPtr) (fromIntegral haystackLen)
 
 utf8PtrAllMatchesIO :: Regex -> Ptr CUInt8 -> CSize -> IO (ReversedList Match)
-utf8PtrAllMatchesIO (Regex re) haystackPtr haystackLen =
+utf8PtrAllMatchesIO !(Regex re) !haystackPtr !haystackLen =
   withForeignPtr re $ \rePtr ->
     bracket
       (FFI.rureIterNew rePtr)
@@ -174,12 +174,12 @@ utf8PtrAllMatchesIO (Regex re) haystackPtr haystackLen =
           go []
 
 bytestringHasSetMatch :: RegexSet -> BS.ByteString -> Bool
-bytestringHasSetMatch reSet haystack = unsafePerformIO $
+bytestringHasSetMatch !reSet !haystack = unsafePerformIO $
   BS.useAsCStringLen haystack $ \(haystackPtr, haystackLen) ->
     utf8PtrHasSetMatchIO reSet (coerce haystackPtr) (fromIntegral haystackLen)
 
 utf8PtrHasSetMatchIO :: RegexSet -> Ptr CUInt8 -> CSize -> IO Bool
-utf8PtrHasSetMatchIO (RegexSet reSet) haystackPtr haystackLen =
+utf8PtrHasSetMatchIO !(RegexSet reSet) !haystackPtr !haystackLen =
   withForeignPtr reSet $ \reSetPtr ->
     isTruthy <$> FFI.rureSetIsMatch reSetPtr haystackPtr haystackLen 0
 
